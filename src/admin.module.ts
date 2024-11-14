@@ -1,16 +1,24 @@
-import { Module, Global, DynamicModule, Type } from '@nestjs/common';
+import { Module, Global, DynamicModule, MiddlewareConsumer } from '@nestjs/common';
 import { NestAdminService } from './admin.service';
 import { NestAdminController } from './admin.controller';
 import { join } from 'path';
 import { RegisterModule } from './register/register.module';
 import { RouterModule } from '@nestjs/core';
-
-
+// import * as ejs from 'ejs';
+// import * as ejsLocals from 'ejs-locals';
+import * as expressEjsLayouts from 'express-ejs-layouts';
+import { AdminLayoutMiddleware } from './admin.middleware';
+import * as fs from 'fs';
 @Global()
 @Module({
   imports: [RegisterModule]
 })
 export class AdminModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(AdminLayoutMiddleware) // 应用中间件
+      .forRoutes(NestAdminController); // 适用于 AdminController 的所有路由
+  }
   static register(extraModule?: any, prefix: string = 'admin'): DynamicModule {
     const importedModules = extraModule.filter(Boolean); 
     const childrenRoutes = importedModules.map((module) => ({
@@ -41,12 +49,25 @@ export class AdminModule {
   }
 
   static configure(app: any,opt?:any) {
+    const userViewsDir = opt && opt.viewsDir ? opt.viewsDir : join(__dirname, '..', 'views');
+    const defaultViewsDir = join(__dirname, '..', 'default_views');
     // 设置视图目录和视图引擎
-    const viewsDir = ['views', join(__dirname, '..', 'views')];
-    if (opt && opt.viewsDir) {
-      viewsDir.unshift(opt.viewsDir);
-    }
+    
+    const viewsDir = [userViewsDir, defaultViewsDir];
+    // if (opt && opt.viewsDir) {
+    //   viewsDir.unshift(opt.viewsDir);
+    // }
+
     app.setBaseViewsDir(viewsDir);
     app.setViewEngine('ejs');
+    app.use(expressEjsLayouts);
+      // 检查用户是否提供了自定义的 layout.ejs
+      const userLayoutPath = join(userViewsDir, 'layouts', 'layout.ejs');
+      const defaultLayoutPath = join(defaultViewsDir, 'layouts', 'layout.ejs');
+  
+      if (!fs.existsSync(userLayoutPath)) {
+        app.locals.layout = defaultLayoutPath;
+      }
+    // app.engine('ejs', ejsLocals(ejs));
   }
 }

@@ -1,16 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-hans">
 <head>
     <meta charset="UTF-8">
-    <title>这是默认模板</title>
+    <title><%= typeof title !== 'undefined' ? title : '默认模板' %></title>
+
 </head>
 <body>
-
-    <main>
-        <%- body %> <!-- 内容插入区域 -->
-    </main>
-    <footer>
-        <p>© 2024 My Application</p>
-    </footer>
+    <%- body %> <!-- 内容插入区域 -->
+ 
 </body>
 </html>

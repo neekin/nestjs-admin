@@ -7,8 +7,8 @@ import { RouterModule } from '@nestjs/core';
 // import * as ejs from 'ejs';
 // import * as ejsLocals from 'ejs-locals';
 import * as expressEjsLayouts from 'express-ejs-layouts';
-import { AdminLayoutMiddleware } from './admin.middleware';
-import * as fs from 'fs';
+import { AdminLayoutMiddleware } from './admin-layout.middleware';
+import { LayoutPriorityMiddleware } from './layout-priority.middleware';
 @Global()
 @Module({
   imports: [RegisterModule]
@@ -16,11 +16,11 @@ import * as fs from 'fs';
 export class AdminModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
-      .apply(AdminLayoutMiddleware) // 应用中间件
+      .apply(AdminLayoutMiddleware)
       .forRoutes(NestAdminController); // 适用于 AdminController 的所有路由
   }
   static register(extraModule?: any, prefix: string = 'admin'): DynamicModule {
-    const importedModules = extraModule.filter(Boolean); 
+    const importedModules = extraModule && extraModule.filter(Boolean) || []; 
     const childrenRoutes = importedModules.map((module) => ({
       path:module.name.replace(/Module$/, '').toLowerCase(),
       module,
@@ -49,25 +49,17 @@ export class AdminModule {
   }
 
   static configure(app: any,opt?:any) {
-    const userViewsDir = opt && opt.viewsDir ? opt.viewsDir : join(__dirname, '..', 'views');
-    const defaultViewsDir = join(__dirname, '..', 'default_views');
+    const projectRoot = process.cwd();
+    const userViewsDir = opt && opt.viewsDir ? opt.viewsDir : [join(projectRoot, 'views')];
+    const defaultViewsDir = join(__dirname, '..', 'views');
+ 
     // 设置视图目录和视图引擎
-    
-    const viewsDir = [userViewsDir, defaultViewsDir];
-    // if (opt && opt.viewsDir) {
-    //   viewsDir.unshift(opt.viewsDir);
-    // }
-
+    const viewsDir = [...userViewsDir, defaultViewsDir];
     app.setBaseViewsDir(viewsDir);
     app.setViewEngine('ejs');
     app.use(expressEjsLayouts);
-      // 检查用户是否提供了自定义的 layout.ejs
-      const userLayoutPath = join(userViewsDir, 'layouts', 'layout.ejs');
-      const defaultLayoutPath = join(defaultViewsDir, 'layouts', 'layout.ejs');
-  
-      if (!fs.existsSync(userLayoutPath)) {
-        app.locals.layout = defaultLayoutPath;
-      }
-    // app.engine('ejs', ejsLocals(ejs));
+    // 检查用户是否提供了自定义的 layout.ejs
+    app.use(new LayoutPriorityMiddleware(viewsDir).use);
+ 
   }
 }
